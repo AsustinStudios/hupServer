@@ -108,6 +108,7 @@ func fileServer(w http.ResponseWriter, r *http.Request) {
 
 	path := r.URL.Path[len("/"):]
 	// If accessing the root
+	parseTemplates()
 	if len(path) == 0 && tmplt != nil && tmplt.DefinedTemplates() != "" {
 		files, err := filepath.Glob(webRoot + "HUP*_session.mp3")
 		if err != nil {
@@ -171,7 +172,6 @@ func parseTemplates() {
 }
 
 func render(w http.ResponseWriter, page string, data interface{}) {
-	parseTemplates()
 	w.Header().Set("Vary", "Accept-Encoding")
 	err := tmplt.ExecuteTemplate(w, page, data)
 	if err != nil {
