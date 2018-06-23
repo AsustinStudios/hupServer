@@ -107,7 +107,8 @@ func fileServer(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 
 	path := r.URL.Path[len("/"):]
-	if len(path) == 0 && tmplt.DefinedTemplates() != "" { // If accessing the root
+	// If accessing the root
+	if len(path) == 0 && tmplt.DefinedTemplates() != "" && tmplt != nil {
 		files, err := filepath.Glob(webRoot + "HUP*_session.mp3")
 		if err != nil {
 			log.Fatal(err)
@@ -155,8 +156,7 @@ func parseTemplates() {
 	}
 
 	if len(files) == 0 {
-		tmplt = new(template.Template)
-		return
+		tmplt = nil
 	}
 
 	tmplt, err = template.ParseFiles(files...)
