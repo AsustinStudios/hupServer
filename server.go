@@ -72,7 +72,6 @@ func main() {
 
 	// Create the connection to the database.
 	setupDB()
-	parseTemplates()
 
 	http.HandleFunc("/", fileServer)
 	// Listen on HTTP
@@ -95,6 +94,14 @@ func main() {
 
 }
 
+func processFiles(files []string) {
+	sort.Strings(files)
+	for i := range files {
+		files[i] = strings.SplitN(files[i], webRoot, 2)[1]
+	}
+
+}
+
 func fileServer(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 
@@ -104,7 +111,7 @@ func fileServer(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		sort.Strings(files)
+		processFiles(files)
 
 		render(w, "index", files)
 	} else {
@@ -155,6 +162,7 @@ func parseTemplates() {
 }
 
 func render(w http.ResponseWriter, page string, data interface{}) {
+	parseTemplates()
 	w.Header().Set("Vary", "Accept-Encoding")
 	err := tmplt.ExecuteTemplate(w, page, data)
 	if err != nil {
