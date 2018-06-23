@@ -69,13 +69,6 @@ func main() {
 	// Create the connection to the database.
 	setupDB()
 
-	// Serve http
-	http.HandleFunc("/", fileServer)
-	err = http.ListenAndServe(":80", nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	// Listen on HTTP
 	go func() {
 		err := http.ListenAndServe(fmt.Sprintf("%s:%d", ip, port), nil)
