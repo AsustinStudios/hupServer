@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
@@ -13,7 +14,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"text/template"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -72,6 +72,7 @@ func main() {
 
 	// Create the connection to the database.
 	setupDB()
+	parseTemplates()
 
 	http.HandleFunc("/", fileServer)
 	// Listen on HTTP
@@ -106,7 +107,7 @@ func fileServer(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 
 	path := r.URL.Path[len("/"):]
-	if len(path) == 0 { // If accessing the root
+	if len(path) == 0 && tmplt.DefinedTemplates() != "" { // If accessing the root
 		files, err := filepath.Glob(webRoot + "HUP*_session.mp3")
 		if err != nil {
 			log.Fatal(err)
@@ -151,6 +152,10 @@ func parseTemplates() {
 	files, err := filepath.Glob(webRoot + "*.html")
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if len(files) == 0 {
+		tmplt = new(template.Template)
 	}
 
 	tmplt, err = template.ParseFiles(files...)
