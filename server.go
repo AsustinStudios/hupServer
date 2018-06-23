@@ -10,7 +10,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
+	"text/template"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -23,13 +26,14 @@ const (
 	certificateFile = "/etc/letsencrypt/live/hup.asustin.net/fullchain.pem"
 	keyFile         = "/etc/letsencrypt/live/hup.asustin.net/privkey.pem"
 	logFile         = "/opt/logs/hup.asustin.net/standard.log"
-	webRoot         = "/opt/hup"
+	webRoot         = "/opt/hup/"
 	dbUser          = "hup"
 	dbPass          = "hup"
 )
 
 var (
-	db *sql.DB
+	db    *sql.DB
+	tmplt *template.Template
 )
 
 type geoInfo struct {
@@ -68,6 +72,7 @@ func main() {
 
 	// Create the connection to the database.
 	setupDB()
+	parseTemplates()
 
 	http.HandleFunc("/", fileServer)
 	// Listen on HTTP
@@ -93,10 +98,21 @@ func main() {
 func fileServer(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 
-	// Start the local file server
-	fs := http.StripPrefix("/", http.FileServer(http.Dir(webRoot)))
-	rw := NewResponseWriter(w)
-	fs.ServeHTTP(rw, r) // Serve the requested file
+	path := r.URL.Path[len("/"):]
+	if len(path) == 0 { // If accessing the root
+		files, err := filepath.Glob(webRoot + "HUP*_session.mp3")
+		if err != nil {
+			log.Fatal(err)
+		}
+		sort.Strings(files)
+
+		render(w, "index", files)
+	} else {
+		// Start the local file server
+		fs := http.StripPrefix("/", http.FileServer(http.Dir(webRoot)))
+		rw := NewResponseWriter(w)
+		fs.ServeHTTP(rw, r) // Serve the requested file
+	}
 
 	// Call API for geo IP info
 	remoteAddr := r.RemoteAddr
@@ -119,6 +135,28 @@ func fileServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = logToDatabase(r, info, now)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func parseTemplates() {
+	files, err := filepath.Glob(webRoot + "*.html")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tmplt, err = template.ParseFiles(files...)
+	if err != nil {
+		log.Fatalln("Template parsing error: ", err)
+	}
+
+	log.Println("HTML Templates Parsed")
+}
+
+func render(w http.ResponseWriter, page string, data interface{}) {
+	w.Header().Set("Vary", "Accept-Encoding")
+	err := tmplt.ExecuteTemplate(w, page, data)
 	if err != nil {
 		log.Println(err)
 	}
