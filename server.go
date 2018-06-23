@@ -95,7 +95,7 @@ func fileServer(w http.ResponseWriter, r *http.Request) {
 	// Start the local file server
 	fs := http.StripPrefix("/", http.FileServer(http.Dir(webRoot)))
 	rw := NewResponseWriter(w)
-	fs.ServeHTTP(rw, r) // Serve the requested file
+	log.Fatal(fs.ServeHTTP(rw, r)) // Serve the requested file
 
 	// Call API for geo IP info
 	remoteAddr := r.RemoteAddr
