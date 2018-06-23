@@ -108,7 +108,7 @@ func fileServer(w http.ResponseWriter, r *http.Request) {
 
 	path := r.URL.Path[len("/"):]
 	// If accessing the root
-	if len(path) == 0 && tmplt.DefinedTemplates() != "" && tmplt != nil {
+	if len(path) == 0 && tmplt != nil && tmplt.DefinedTemplates() != "" {
 		files, err := filepath.Glob(webRoot + "HUP*_session.mp3")
 		if err != nil {
 			log.Fatal(err)
