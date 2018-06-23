@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -59,16 +58,17 @@ type request struct {
 
 func main() {
 	// Setup log
-	file, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		log.Fatalf("Error opening file: %v", err)
-	}
-	defer file.Close()
-	log.SetOutput(file)
+	// file, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	// if err != nil {
+	// log.Fatalf("Error opening file: %v", err)
+	// }
+	// defer file.Close()
+	// log.SetOutput(file)
 
 	// Create the connection to the database.
 	setupDB()
 
+	http.HandleFunc("/", fileServer)
 	// Listen on HTTP
 	go func() {
 		err := http.ListenAndServe(fmt.Sprintf("%s:%d", ip, port), nil)
@@ -95,7 +95,7 @@ func fileServer(w http.ResponseWriter, r *http.Request) {
 	// Start the local file server
 	fs := http.StripPrefix("/", http.FileServer(http.Dir(webRoot)))
 	rw := NewResponseWriter(w)
-	log.Fatal(fs.ServeHTTP(rw, r)) // Serve the requested file
+	fs.ServeHTTP(rw, r) // Serve the requested file
 
 	// Call API for geo IP info
 	remoteAddr := r.RemoteAddr
