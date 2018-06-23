@@ -157,6 +157,7 @@ func parseTemplates() {
 
 	if len(files) == 0 {
 		tmplt = nil
+		return
 	}
 
 	tmplt, err = template.ParseFiles(files...)
