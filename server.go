@@ -16,6 +16,18 @@ import (
 	_ "github.com/lib/pq"
 )
 
+const (
+	ip              = "172.31.26.28"
+	port            = 8080
+	securePort      = 8443
+	certificateFile = "/etc/letsencrypt/live/hup.asustin.net/fullchain.pem"
+	keyFile         = "/etc/letsencrypt/live/hup.asustin.net/privkey.pem"
+	logFile         = "/opt/logs/cloud.asustin.net/standard.log"
+	webRoot         = "/opt/hup"
+	dbUser          = "hup"
+	dbPass          = "hup"
+)
+
 var (
 	db *sql.DB
 )
@@ -48,7 +60,7 @@ type request struct {
 func main() {
 	// Setup log
 	fileName := fmt.Sprintf("/logs/%s", os.Args[0])
-	file, err := os.OpenFile(fileName, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
+	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("Error opening file: %v", err)
 	}
@@ -63,27 +75,46 @@ func main() {
 			log.Fatal(err, ". Probably ths server is already running.")
 		}
 	}()
-	
+
 	// Create the connection to the database.
 	setupDB()
-	
+
 	// Serve http
-	http.HandleFunc("/test/", serv)
+	http.HandleFunc("/", fileServer)
 	err = http.ListenAndServe(":80", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Listen on HTTP
+	go func() {
+		err := http.ListenAndServe(fmt.Sprintf("%s:%d"), ip, port)
+		if err != nil {
+			if err != http.ErrServerClosed {
+				log.Fatal(err)
+			}
+		}
+	}()
+
+	// Listen on HTTPS
+	err = http.ListenAndServeTLS(fmt.Sprintf("%s:%d"), ip, securePort, certificateFile, keyFile, nil)
+	if err != nil {
+		if err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}
+
 }
 
-func serv(resp http.ResponseWriter, req *http.Request) {
+func fileServer(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 
 	log.Println("Received a request from:", req.RemoteAddr)
 
-	// Start the local filse server
-	fs := http.FileServer(http.Dir("/web"))
-	fs = http.StripPrefix("/test/", fs)
-	fs.ServeHTTP(resp, req) // Serve the requested file
+	// Start the local file server
+	fs = http.StripPrefix("/", http.FileServer(http.Dir(webRoot)))
+	rw := NewResponseWriter(w)
+	fs.ServeHTTP(rw, r) // Serve the requested file
 
 	// Call API for geo IP info
 	remoteAddr := req.RemoteAddr
@@ -102,6 +133,7 @@ func serv(resp http.ResponseWriter, req *http.Request) {
 	err = json.Unmarshal(body, &info)
 	if err != nil {
 		log.Println(err)
+		return
 	}
 
 	err = logToDatabase(req, info, now)
@@ -110,15 +142,25 @@ func serv(resp http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func stop(resp http.ResponseWriter, req *http.Request) {
-	log.Println("Stop Requested.")
-	os.Exit(0)
+type ResponseWriter struct {
+	status int
+	http.ResponseWriter
+}
+
+func NewResponseWriter(w http.ResponseWriter) *ResponseWriter {
+	return &ResponseWriter{0, w}
+}
+
+func (w *ResponseWriter) Status() int {
+	return w.status
+}
+
+func (w *ResponseWriter) WriteHeader(statusCode int) {
+	w.status = statusCode
+	w.ResponseWriter.WriteHeader(statusCode)
 }
 
 func setupDB() {
-	dbUser := os.Getenv("DBUSER")
-	dbPass := os.Getenv("DBPASS")
-
 	var err error
 	connectionString := fmt.Sprintf("user=%s dbname=hup sslmode=require host=asustindb.cv2dl6jc40dy.us-west-2.rds.amazonaws.com password=%s", dbUser, dbPass)
 	db, err = sql.Open("postgres", connectionString)
