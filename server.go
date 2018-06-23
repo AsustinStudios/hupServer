@@ -157,11 +157,13 @@ func parseTemplates() {
 
 	if len(files) == 0 {
 		tmplt = nil
+		log.Println(files)
 		return
 	}
 
 	tmplt, err = template.ParseFiles(files...)
 	if err != nil {
+		log.Println(files)
 		log.Fatalln("Template parsing error: ", err)
 	}
 
