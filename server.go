@@ -67,15 +67,6 @@ func main() {
 	defer file.Close()
 	log.SetOutput(file)
 
-	// Bind to port to prevent the server from running more than once.
-	go func() {
-		http.HandleFunc("/stop/", stop)
-		err := http.ListenAndServe(":9999", nil)
-		if err != nil {
-			log.Fatal(err, ". Probably ths server is already running.")
-		}
-	}()
-
 	// Create the connection to the database.
 	setupDB()
 
@@ -88,7 +79,7 @@ func main() {
 
 	// Listen on HTTP
 	go func() {
-		err := http.ListenAndServe(fmt.Sprintf("%s:%d"), ip, port)
+		err := http.ListenAndServe(fmt.Sprintf("%s:%d", ip, port), nil)
 		if err != nil {
 			if err != http.ErrServerClosed {
 				log.Fatal(err)
@@ -97,7 +88,7 @@ func main() {
 	}()
 
 	// Listen on HTTPS
-	err = http.ListenAndServeTLS(fmt.Sprintf("%s:%d"), ip, securePort, certificateFile, keyFile, nil)
+	err = http.ListenAndServeTLS(fmt.Sprintf("%s:%d", ip, securePort), certificateFile, keyFile, nil)
 	if err != nil {
 		if err != http.ErrServerClosed {
 			log.Fatal(err)
@@ -109,15 +100,13 @@ func main() {
 func fileServer(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 
-	log.Println("Received a request from:", req.RemoteAddr)
-
 	// Start the local file server
-	fs = http.StripPrefix("/", http.FileServer(http.Dir(webRoot)))
+	fs := http.StripPrefix("/", http.FileServer(http.Dir(webRoot)))
 	rw := NewResponseWriter(w)
 	fs.ServeHTTP(rw, r) // Serve the requested file
 
 	// Call API for geo IP info
-	remoteAddr := req.RemoteAddr
+	remoteAddr := r.RemoteAddr
 	apiCall := fmt.Sprintf("https://freegeoip.net/json/%s", strings.Split(remoteAddr, ":")[0])
 	res, err := http.Get(apiCall)
 	if err != nil {
@@ -136,7 +125,7 @@ func fileServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = logToDatabase(req, info, now)
+	err = logToDatabase(r, info, now)
 	if err != nil {
 		log.Println(err)
 	}
