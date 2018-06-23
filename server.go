@@ -22,7 +22,7 @@ const (
 	securePort      = 8443
 	certificateFile = "/etc/letsencrypt/live/hup.asustin.net/fullchain.pem"
 	keyFile         = "/etc/letsencrypt/live/hup.asustin.net/privkey.pem"
-	logFile         = "/opt/logs/cloud.asustin.net/standard.log"
+	logFile         = "/opt/logs/hup.asustin.net/standard.log"
 	webRoot         = "/opt/hup"
 	dbUser          = "hup"
 	dbPass          = "hup"
@@ -59,8 +59,7 @@ type request struct {
 
 func main() {
 	// Setup log
-	fileName := fmt.Sprintf("/logs/%s", os.Args[0])
-	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	file, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("Error opening file: %v", err)
 	}
