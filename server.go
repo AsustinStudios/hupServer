@@ -30,6 +30,8 @@ const (
 	webRoot         = "/opt/hup/"
 	dbUser          = "hup"
 	dbPass          = "hup"
+	geoIp           = "http://api.ipstack.com"
+	geoIpKey        = "f41b47a892bba9ea938b3c4a9ac3a7a1"
 )
 
 var (
@@ -38,17 +40,15 @@ var (
 )
 
 type geoInfo struct {
-	Ip          string
-	CountryCode string `json:"country_code"`
-	CountryName string `json:"country_name"`
-	RegionCode  string `json:"region_code"`
-	RegionName  string `json:"region_name"`
-	City        string
-	ZipCode     string `json:"zip_code"`
-	TimeZone    string `json:"time_zone"`
-	Latitude    float32
-	Longitude   float32
-	MetroCode   int `json:"metro_code"`
+	Ip          string  `json:"ip"`
+	CountryCode string  `json:"country_code"`
+	CountryName string  `json:"country_name"`
+	RegionCode  string  `json:"region_code"`
+	RegionName  string  `json:"region_name"`
+	City        string  `json:"city"`
+	ZipCode     string  `json:"zip"`
+	Latitude    float32 `json:"latitude"`
+	Longitude   float32 `json:"longitude"`
 }
 
 type request struct {
@@ -131,8 +131,9 @@ func fileServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call API for geo IP info
-	remoteAddr := r.RemoteAddr
-	apiCall := fmt.Sprintf("https://freegeoip.net/json/%s", strings.Split(remoteAddr, ":")[0])
+	remoteAddr := strings.Split(r.RemoteAddr, ":")[0]
+	fields := "ip,country_code,country_name,region_code,region_name,city,zip,latitude,longitude"
+	apiCall := fmt.Sprintf("%s/%s?access_key=%s&fields=%s", geoIp, remoteAddr, geoIpKey, fields)
 	res, err := http.Get(apiCall)
 	if err != nil {
 		log.Println(err)
@@ -218,8 +219,8 @@ func setupDB() {
 }
 
 func logToDatabase(req *http.Request, geo geoInfo, now time.Time) error {
-	query := `INSERT INTO requests (ip, port, uri, method, url, header, body, host, trailer, date, country_code, country_name, region_code, region_name, city, zip_code, time_zone, latitude, longitude, metro_code)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+	query := `INSERT INTO requests (ip, port, uri, method, url, header, body, host, trailer, date, country_code, country_name, region_code, region_name, city, zip_code, latitude, longitude)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 RETURNING request_id`
 	var requestId int
 	var url string
@@ -257,8 +258,8 @@ RETURNING request_id`
 
 	err = db.QueryRow(query, ip, port, req.RequestURI, req.Method, url, header,
 		body, req.Host, trailer, now, geo.CountryCode, geo.CountryName,
-		geo.RegionCode, geo.RegionName, geo.City, geo.ZipCode, geo.TimeZone,
-		geo.Latitude, geo.Longitude, geo.MetroCode).Scan(&requestId)
+		geo.RegionCode, geo.RegionName, geo.City, geo.ZipCode,
+		geo.Latitude, geo.Longitude).Scan(&requestId)
 	if err != nil {
 		return err
 	}
