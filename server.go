@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -60,6 +61,8 @@ type request struct {
 	RemoteAddr string
 	RequestURI string
 }
+
+var rssFile = regexp.MustCompile(`^.*\.rss$`)
 
 func main() {
 	// Setup log
@@ -121,6 +124,9 @@ func fileServer(w http.ResponseWriter, r *http.Request) {
 		// Start the local file server
 		fs := http.StripPrefix("/", http.FileServer(http.Dir(webRoot)))
 		rw := NewResponseWriter(w)
+		if rssFile.MatchString(path) {
+			rw.Header().Set("Content-Type", "application/rss+xml")
+		}
 		fs.ServeHTTP(rw, r) // Serve the requested file
 	}
 
